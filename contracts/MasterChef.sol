@@ -63,12 +63,16 @@ contract MasterChef is Ownable {
     KokomoToken public kokomo;
     // The SYRUP TOKEN!
     SyrupBar public syrup;
-    // Dev address.
-    address public devaddr;
+    // team address.
+    address public teamaddr;
+    // bd/reserve address.
+    address public bdaddr;
+    // initial liquidity provider address.
+    address public liquidityprovideraddr;
     // KOKOMO tokens created per block.
     uint256 public kokomoPerBlock;
     // Bonus muliplier for early kokomo makers.
-    uint256 public BONUS_MULTIPLIER = 1;
+    uint256 public BONUS_MULTIPLIER = 8;
     // The migrator contract. It has a lot of power. Can only be set through governance (owner).
     IMigratorChef public migrator;
 
@@ -80,6 +84,8 @@ contract MasterChef is Ownable {
     uint256 public totalAllocPoint = 0;
     // The block number when KOKOMO mining starts.
     uint256 public startBlock;
+    
+    bool public premintCompleted = false;
 
     event Deposit(address indexed user, uint256 indexed pid, uint256 amount);
     event Withdraw(address indexed user, uint256 indexed pid, uint256 amount);
@@ -88,13 +94,17 @@ contract MasterChef is Ownable {
     constructor(
         KokomoToken _kokomo,
         SyrupBar _syrup,
-        address _devaddr,
+        address _teamaddr,
+        address _bdaddr,
+        address _liquidityprovideraddr,
         uint256 _kokomoPerBlock,
         uint256 _startBlock
     ) public {
         kokomo = _kokomo;
         syrup = _syrup;
-        devaddr = _devaddr;
+        teamaddr = _teamaddr;
+        bdaddr = _bdaddr;
+        liquidityprovideraddr = _liquidityprovideraddr;
         kokomoPerBlock = _kokomoPerBlock;
         startBlock = _startBlock;
 
@@ -192,7 +202,8 @@ contract MasterChef is Ownable {
         if (block.number > pool.lastRewardBlock && lpSupply != 0) {
             uint256 multiplier = getMultiplier(pool.lastRewardBlock, block.number);
             uint256 kokomoReward = multiplier.mul(kokomoPerBlock).mul(pool.allocPoint).div(totalAllocPoint);
-            accKokomoPerShare = accKokomoPerShare.add(kokomoReward.mul(1e12).div(lpSupply));
+            uint256 kokomoLPReward = kokomoReward.mul(70).div(100);
+            accKokomoPerShare = accKokomoPerShare.add(kokomoLPReward.mul(1e12).div(lpSupply));
         }
         return user.amount.mul(accKokomoPerShare).div(1e12).sub(user.rewardDebt);
     }
@@ -219,9 +230,11 @@ contract MasterChef is Ownable {
         }
         uint256 multiplier = getMultiplier(pool.lastRewardBlock, block.number);
         uint256 kokomoReward = multiplier.mul(kokomoPerBlock).mul(pool.allocPoint).div(totalAllocPoint);
-        kokomo.mint(devaddr, kokomoReward.div(10));
-        kokomo.mint(address(syrup), kokomoReward);
-        pool.accKokomoPerShare = pool.accKokomoPerShare.add(kokomoReward.mul(1e12).div(lpSupply));
+        uint256 kokomoLPReward = kokomoReward.mul(70).div(100);
+        kokomo.mint(teamaddr, kokomoReward.mul(15).div(100));
+        kokomo.mint(bdaddr, kokomoReward.mul(15).div(100));
+        kokomo.mint(address(syrup), kokomoLPReward);
+        pool.accKokomoPerShare = pool.accKokomoPerShare.add(kokomoLPReward.mul(1e12).div(lpSupply));
         pool.lastRewardBlock = block.number;
     }
 
@@ -324,9 +337,25 @@ contract MasterChef is Ownable {
         syrup.safeKokomoTransfer(_to, _amount);
     }
 
-    // Update dev address by the previous dev.
-    function dev(address _devaddr) public {
-        require(msg.sender == devaddr, "dev: wut?");
-        devaddr = _devaddr;
+    // Update team address by the previous team.
+    function team(address _teamaddr) public {
+        require(msg.sender == teamaddr, "team: wut?");
+        teamaddr = _teamaddr;
+    }
+    
+    // Update bd address by the previous bd.
+    // Only team address can change bd address.
+    function bd(address _bdaddr) public {
+        require(msg.sender == teamaddr, "bd: wut?");
+        bdaddr = _bdaddr;
+    }
+    
+    function premint() public {
+        require(premintCompleted == false, 'already preminted');
+        // Initial liquidity pre-mint
+        kokomo.mint(address(liquidityprovideraddr), 2000000 * 10 ** 18);
+        // BD Reserve pre-mint
+        kokomo.mint(address(bdaddr), 5000000 * 10 ** 18);
+        premintCompleted = true;
     }
 }
