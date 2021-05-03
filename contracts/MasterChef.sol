@@ -354,8 +354,8 @@ contract MasterChef is Ownable {
         require(premintCompleted == false, 'already preminted');
         // Initial liquidity pre-mint
         kokomo.mint(address(liquidityprovideraddr), 2000000 * 10 ** 18);
-        // BD Reserve pre-mint
-        kokomo.mint(address(bdaddr), 5000000 * 10 ** 18);
+        // Team pre-mint
+        kokomo.mint(address(teamaddr), 5000000 * 10 ** 18);
         premintCompleted = true;
     }
 }
